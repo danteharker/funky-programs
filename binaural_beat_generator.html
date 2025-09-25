@@ -80,6 +80,27 @@
                 </button>
             </div>
         </div>
+
+        <!-- Background Track Controls -->
+        <div>
+            <h2 class="text-xl font-semibold text-center mb-4">Background Track</h2>
+
+            <div class="mb-4">
+                <label for="backgroundFileInput" class="block text-sm mb-2 text-center">Upload Your Track</label>
+                <input type="file" id="backgroundFileInput" accept="audio/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-violet-500 hover:file:bg-gray-600 transition-colors">
+            </div>
+
+            <div class="mb-6">
+                <label for="backgroundVolumeSlider" class="block text-center text-sm mb-2">Background Volume</label>
+                <input type="range" id="backgroundVolumeSlider" min="0" max="1" step="0.01" value="0.5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div class="flex flex-col items-center">
+                <button id="playBackgroundButton" class="w-48 py-3 px-6 text-xl font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-purple-600 hover:bg-purple-700 focus:ring-purple-500">
+                    Play Track
+                </button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -91,12 +112,20 @@
         let gainNodeRight = null;
         let isPlaying = false;
 
+        // Background audio
+        let backgroundAudio = new Audio();
+        let backgroundSourceNode = null;
+        let backgroundGainNode = null;
+        
         // UI elements
         const mainFrequencySlider = document.getElementById('mainFrequencySlider');
         const beatFrequencySlider = document.getElementById('beatFrequencySlider');
         const beatFrequencyDisplay = document.getElementById('beatFrequencyDisplay');
         const beatVolumeSlider = document.getElementById('beatVolumeSlider');
         const playButton = document.getElementById('playButton');
+        const backgroundFileInput = document.getElementById('backgroundFileInput');
+        const backgroundVolumeSlider = document.getElementById('backgroundVolumeSlider');
+        const playBackgroundButton = document.getElementById('playBackgroundButton');
         
         /**
          * Safely initialise the audio context and create all nodes when the user interacts with the page.
@@ -115,6 +144,14 @@
                 gainNodeLeft.connect(panner);
                 gainNodeRight.connect(panner);
                 panner.connect(audioContext.destination);
+
+                // Create gain node for background track
+                backgroundGainNode = audioContext.createGain();
+                backgroundGainNode.connect(audioContext.destination);
+                
+                // Connect background audio to the Web Audio API
+                backgroundSourceNode = audioContext.createMediaElementSource(backgroundAudio);
+                backgroundSourceNode.connect(backgroundGainNode);
             }
         }
 
@@ -214,9 +251,42 @@
             }
         });
 
+        // Handle background track
+        backgroundFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                backgroundAudio.src = url;
+                backgroundAudio.load(); // Load the new audio source
+            }
+        });
+
+        playBackgroundButton.addEventListener('click', () => {
+             initAudioContext();
+            if (backgroundAudio.paused) {
+                backgroundAudio.play();
+                backgroundAudio.loop = true;
+                playBackgroundButton.textContent = 'Pause Track';
+                playBackgroundButton.classList.remove('bg-purple-600', 'hover:bg-purple-700', 'focus:ring-purple-500');
+                playBackgroundButton.classList.add('bg-orange-600', 'hover:bg-orange-700', 'focus:ring-orange-500');
+            } else {
+                backgroundAudio.pause();
+                playBackgroundButton.textContent = 'Play Track';
+                playBackgroundButton.classList.remove('bg-orange-600', 'hover:bg-orange-700', 'focus:ring-orange-500');
+                playBackgroundButton.classList.add('bg-purple-600', 'hover:bg-purple-700', 'focus:ring-purple-500');
+            }
+        });
+
+        backgroundVolumeSlider.addEventListener('input', () => {
+            if (backgroundGainNode) {
+                backgroundGainNode.gain.setValueAtTime(parseFloat(backgroundVolumeSlider.value), audioContext.currentTime);
+            }
+        });
+
         // Initial setup
         playButton.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
         updateFrequenciesAndVolumes();
     </script>
 </body>
 </html>
+
