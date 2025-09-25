@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binaural Beat Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #121212;
+            color: #E0E0E0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #8B5CF6;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: background 0.2s ease-in-out;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #8B5CF6;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: background 0.2s ease-in-out;
+        }
+        .text-neon-green { color: #32CD32; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md mx-4">
+        <h1 class="text-3xl font-bold text-center mb-6">Binaural Beat Generator</h1>
+        
+        <!-- Binaural Beat Controls -->
+        <div class="border-b border-gray-700 pb-6 mb-6">
+            <h2 class="text-xl font-semibold text-center mb-4">Beat Controls</h2>
+            
+            <div class="flex flex-col items-center mb-6">
+                <span id="beatFrequencyDisplay" class="text-4xl font-bold text-neon-green mb-2">10 Hz Beat</span>
+                <span class="text-sm text-gray-400">Target Beat Frequency</span>
+            </div>
+
+            <div class="mb-4">
+                <label for="mainFrequencySlider" class="block text-center text-sm mb-2">Carrier Frequency (Left Ear)</label>
+                <input type="range" id="mainFrequencySlider" min="100" max="1000" value="440" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-sm mt-2">
+                    <span>100 Hz</span>
+                    <span>1000 Hz</span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="beatFrequencySlider" class="block text-center text-sm mb-2">Binaural Beat Frequency</label>
+                <input type="range" id="beatFrequencySlider" min="1" max="40" value="10" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-sm mt-2">
+                    <span>1 Hz</span>
+                    <span>40 Hz</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label for="beatVolumeSlider" class="block text-center text-sm mb-2">Beat Volume</label>
+                <input type="range" id="beatVolumeSlider" min="0" max="1" step="0.001" value="0.5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div class="flex flex-col items-center">
+                <button id="playButton" class="w-48 py-3 px-6 text-xl font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2">
+                    Play Beats
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API context and nodes for the binaural beat generator
+        let audioContext = null;
+        let oscillatorLeft = null;
+        let oscillatorRight = null;
+        let gainNodeLeft = null;
+        let gainNodeRight = null;
+        let isPlaying = false;
+
+        // UI elements
+        const mainFrequencySlider = document.getElementById('mainFrequencySlider');
+        const beatFrequencySlider = document.getElementById('beatFrequencySlider');
+        const beatFrequencyDisplay = document.getElementById('beatFrequencyDisplay');
+        const beatVolumeSlider = document.getElementById('beatVolumeSlider');
+        const playButton = document.getElementById('playButton');
+        
+        /**
+         * Safely initialise the audio context and create all nodes when the user interacts with the page.
+         * This is a requirement for most browsers.
+         */
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create a gain node for each channel to control the volume
+                gainNodeLeft = audioContext.createGain();
+                gainNodeRight = audioContext.createGain();
+
+                // Split the stereo signal and connect each gain node to a specific channel
+                const panner = audioContext.createStereoPanner();
+                gainNodeLeft.connect(panner);
+                gainNodeRight.connect(panner);
+                panner.connect(audioContext.destination);
+            }
+        }
+
+        /**
+         * Starts the two oscillators for the binaural beat.
+         */
+        function startOscillators() {
+            initAudioContext();
+            
+            // Stop any existing oscillators
+            if (oscillatorLeft) {
+                stopOscillators();
+            }
+            
+            // Create and configure the left oscillator
+            oscillatorLeft = audioContext.createOscillator();
+            oscillatorLeft.type = 'sine';
+            oscillatorLeft.connect(gainNodeLeft);
+            
+            // Create and configure the right oscillator
+            oscillatorRight = audioContext.createOscillator();
+            oscillatorRight.type = 'sine';
+            oscillatorRight.connect(gainNodeRight);
+            
+            // Set initial frequencies and volumes
+            updateFrequenciesAndVolumes();
+            
+            // Fade in the volume to avoid clicks
+            gainNodeLeft.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNodeLeft.gain.linearRampToValueAtTime(parseFloat(beatVolumeSlider.value), audioContext.currentTime + 0.05);
+            gainNodeRight.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNodeRight.gain.linearRampToValueAtTime(parseFloat(beatVolumeSlider.value), audioContext.currentTime + 0.05);
+
+            oscillatorLeft.start();
+            oscillatorRight.start();
+            
+            isPlaying = true;
+            playButton.textContent = 'Stop Beats';
+            playButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
+            playButton.classList.add('bg-red-600', 'hover:bg-red-700', 'focus:ring-red-500');
+        }
+
+        /**
+         * Stops the oscillators and resets the audio state.
+         */
+        function stopOscillators() {
+            if (oscillatorLeft && oscillatorRight) {
+                // Fade out the volume to avoid clicks
+                gainNodeLeft.gain.setValueAtTime(parseFloat(beatVolumeSlider.value), audioContext.currentTime);
+                gainNodeLeft.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
+                gainNodeRight.gain.setValueAtTime(parseFloat(beatVolumeSlider.value), audioContext.currentTime);
+                gainNodeRight.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.05);
+                
+                // Stop the oscillators after the fade out
+                oscillatorLeft.stop(audioContext.currentTime + 0.05);
+                oscillatorRight.stop(audioContext.currentTime + 0.05);
+                
+                oscillatorLeft = null;
+                oscillatorRight = null;
+            }
+            isPlaying = false;
+            playButton.textContent = 'Play Beats';
+            playButton.classList.remove('bg-red-600', 'hover:bg-red-700', 'focus:ring-red-500');
+            playButton.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
+        }
+
+        /**
+         * Updates the frequencies and volumes of the oscillators and the display.
+         */
+        function updateFrequenciesAndVolumes() {
+            const mainFrequency = parseInt(mainFrequencySlider.value, 10);
+            const beatFrequency = parseInt(beatFrequencySlider.value, 10);
+            const rightFrequency = mainFrequency + beatFrequency;
+            const volume = parseFloat(beatVolumeSlider.value);
+
+            beatFrequencyDisplay.textContent = `${beatFrequency} Hz Beat`;
+            
+            if (oscillatorLeft && oscillatorRight && isPlaying) {
+                oscillatorLeft.frequency.setValueAtTime(mainFrequency, audioContext.currentTime);
+                oscillatorRight.frequency.setValueAtTime(rightFrequency, audioContext.currentTime);
+                gainNodeLeft.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNodeRight.gain.setValueAtTime(volume, audioContext.currentTime);
+            }
+        }
+
+        // Event listeners
+        mainFrequencySlider.addEventListener('input', updateFrequenciesAndVolumes);
+        beatFrequencySlider.addEventListener('input', updateFrequenciesAndVolumes);
+        beatVolumeSlider.addEventListener('input', updateFrequenciesAndVolumes);
+
+        playButton.addEventListener('click', () => {
+            if (isPlaying) {
+                stopOscillators();
+            } else {
+                startOscillators();
+            }
+        });
+
+        // Initial setup
+        playButton.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
+        updateFrequenciesAndVolumes();
+
+    </script>
+</body>
+</html>
