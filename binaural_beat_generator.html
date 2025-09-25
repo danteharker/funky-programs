@@ -52,11 +52,11 @@
             </div>
 
             <div class="mb-4">
-                <label for="mainFrequencySlider" class="block text-center text-sm mb-2">Carrier Frequency (Left Ear)</label>
-                <input type="range" id="mainFrequencySlider" min="100" max="1000" value="440" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                <label for="mainFrequencySlider" class="block text-center text-sm mb-2">Carrier Frequency</label>
+                <input type="range" id="mainFrequencySlider" min="100" max="1900" value="440" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                 <div class="flex justify-between text-sm mt-2">
                     <span>100 Hz</span>
-                    <span>1000 Hz</span>
+                    <span>1900 Hz</span>
                 </div>
             </div>
 
@@ -190,6 +190,7 @@
             const rightFrequency = mainFrequency + beatFrequency;
             const volume = parseFloat(beatVolumeSlider.value);
 
+            // Update display elements
             beatFrequencyDisplay.textContent = `${beatFrequency} Hz Beat`;
             
             if (oscillatorLeft && oscillatorRight && isPlaying) {
@@ -216,7 +217,6 @@
         // Initial setup
         playButton.classList.add('bg-green-600', 'hover:bg-green-700', 'focus:ring-green-500');
         updateFrequenciesAndVolumes();
-
     </script>
 </body>
 </html>
